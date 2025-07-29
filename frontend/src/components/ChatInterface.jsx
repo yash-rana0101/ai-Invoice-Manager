@@ -153,54 +153,76 @@ export default function ChatInterface() {
   return (
     <div className="flex flex-col h-full w-full max-w-none sm:max-w-6xl mx-auto relative">
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto p-2 sm:p-4 space-y-3 sm:space-y-4 min-h-0">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-4 min-h-0">
         {messages.map((message) => (
           <div
             key={message.id}
             className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
           >
-            <div className="flex items-start space-x-2 w-full max-w-[85%] sm:max-w-xs md:max-w-2xl">
-              {message.sender === 'bot' && (
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+            <div className={`flex items-start space-x-3 max-w-[85%] sm:max-w-md md:max-w-2xl ${message.sender === 'user' ? 'flex-row-reverse space-x-reverse' : ''
+              }`}>
+              {/* Avatar */}
+              <div className="flex-shrink-0">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${message.sender === 'bot'
+                    ? 'bg-primary-500'
+                    : 'bg-gray-500'
+                  }`}>
+                  {message.sender === 'bot' ? (
+                    <Bot className="w-4 h-4 text-white" />
+                  ) : (
+                    <User className="w-4 h-4 text-white" />
+                  )}
                 </div>
-              )}
-              <div className={`chat-message ${message.sender === 'user' ? 'chat-user' : 'chat-bot'} w-full`}>
-                <div className="text-sm prose max-w-none"
-                  dangerouslySetInnerHTML={{ __html: marked(message.content || 'Please Login Again!') }}
+              </div>
+
+              {/* Message Bubble */}
+              <div className={`rounded-2xl px-4 py-3 max-w-full ${message.sender === 'user'
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-gray-100 text-gray-800'
+                }`}>
+                <div
+                  className="text-sm leading-relaxed prose prose-sm max-w-none"
+                  style={{
+                    color: message.sender === 'user' ? 'white' : 'inherit'
+                  }}
+                  dangerouslySetInnerHTML={{
+                    __html: marked(message.content || 'Please Login Again!')
+                  }}
                 />
+
+                {/* File upload data display */}
                 {message.data && message.type === 'file-upload' && (
-                  <div className="mt-3 p-2 sm:p-3 bg-white/20 rounded-lg">
-                    <div className="text-xs font-medium mb-2">Extracted Data:</div>
-                    <div className="text-xs overflow-x-auto">
-                      <pre className="whitespace-pre-wrap break-all">
+                  <div className="mt-3 p-3 bg-white/10 rounded-lg border border-white/20">
+                    <div className="text-xs font-medium mb-2 opacity-90">Extracted Data:</div>
+                    <div className="text-xs font-mono bg-black/10 p-2 rounded overflow-x-auto">
+                      <pre className="whitespace-pre-wrap break-all opacity-90">
                         {JSON.stringify(message.data, null, 2)}
                       </pre>
                     </div>
                   </div>
                 )}
+
+                {/* Other data display */}
                 {message.data && message.type !== 'file-upload' && (
-                  <div className="mt-2 p-2 bg-white/20 rounded text-xs overflow-x-auto">
-                    <pre className="whitespace-pre-wrap break-all">{JSON.stringify(message.data, null, 2)}</pre>
+                  <div className="mt-2 p-2 bg-white/10 rounded text-xs overflow-x-auto">
+                    <pre className="whitespace-pre-wrap break-all font-mono opacity-90">
+                      {JSON.stringify(message.data, null, 2)}
+                    </pre>
                   </div>
                 )}
               </div>
-              {message.sender === 'user' && (
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-gray-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
-                  <User className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                </div>
-              )}
             </div>
           </div>
         ))}
 
+        {/* Loading indicator */}
         {loading && (
           <div className="flex justify-start">
-            <div className="flex items-start space-x-2">
-              <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary-500 rounded-full flex items-center justify-center">
-                <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
+            <div className="flex items-start space-x-3">
+              <div className="w-8 h-8 bg-primary-500 rounded-full flex items-center justify-center">
+                <Bot className="w-4 h-4 text-white" />
               </div>
-              <div className="chat-message chat-bot">
+              <div className="bg-gray-100 rounded-2xl px-4 py-3">
                 <div className="flex space-x-1">
                   <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
                   <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
@@ -215,49 +237,57 @@ export default function ChatInterface() {
       </div>
 
       {/* Input Container */}
-      <div className="border bg-white p-2 sm:p-4 m-2 sm:mb-4 rounded-lg border-gray-800 flex-shrink-0">
-        <div className="flex space-x-2">
+      <div className="border-t bg-white p-3 sm:p-4 border-gray-200 flex-shrink-0">
+        <div className="flex items-end space-x-2 sm:space-x-3">
           <button
             onClick={() => setShowFileUpload(!showFileUpload)}
-            className="p-2 text-gray-500 hover:text-primary-500 transition-colors flex-shrink-0"
+            className="p-2 text-gray-500 hover:text-primary-500 transition-colors flex-shrink-0 rounded-lg hover:bg-gray-100"
             title="Upload document"
           >
-            <Paperclip className="w-4 h-4 sm:w-5 sm:h-5" />
+            <Paperclip className="w-5 h-5" />
           </button>
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyUp={handleKeyPress}
-            placeholder="Type your message or upload a document..."
-            className="flex-1 border border-gray-300 rounded-lg px-2 py-2 sm:px-3 sm:py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 resize-none text-sm sm:text-base min-h-[40px] max-h-32"
-            rows="2"
-            disabled={loading}
-            style={{ 
-              height: 'auto',
-              minHeight: '40px'
-            }}
-            onInput={(e) => {
-              e.target.style.height = 'auto';
-              e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
-            }}
-          />
+
+          <div className="flex-1">
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder="Type your message or upload a document..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none text-sm placeholder-gray-500"
+              rows="1"
+              disabled={loading}
+              style={{
+                height: 'auto',
+                minHeight: '42px',
+                maxHeight: '120px'
+              }}
+              onInput={(e) => {
+                e.target.style.height = 'auto';
+                e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+              }}
+            />
+          </div>
+
           <button
             onClick={sendMessage}
             disabled={!input.trim() || loading}
-            className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed p-2 sm:px-4 sm:py-2 flex-shrink-0"
+            className="bg-primary-500 hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed text-white p-2 rounded-lg transition-colors flex-shrink-0"
           >
-            <Send className="w-4 h-4" />
+            <Send className="w-5 h-5" />
           </button>
         </div>
-        <div className="mt-2 text-xs text-gray-500 px-1">
-          <span className="hidden sm:inline">💡 Tip: Upload invoice documents using the paperclip icon for automatic data extraction</span>
-          <span className=" hidden sm:hidden">💡 Tap 📎 to upload documents</span>
+
+        <div className="mt-2 px-1">
+          <p className="text-xs text-gray-500">
+            <span className="hidden sm:inline">💡 Tip: Upload invoice documents using the paperclip icon for automatic data extraction</span>
+            <span className="sm:hidden">💡 Tap 📎 to upload documents</span>
+          </p>
         </div>
       </div>
 
       {/* File Upload Modal */}
       {showFileUpload && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -270,14 +300,16 @@ export default function ChatInterface() {
               {/* Header */}
               <div className="flex items-center justify-between mb-4 sm:mb-6">
                 <div>
-                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 sm:mb-2">Upload Invoice Document</h3>
+                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1 sm:mb-2">
+                    Upload Invoice Document
+                  </h3>
                   <p className="text-xs sm:text-sm text-gray-600">
                     Upload an invoice PDF file and I'll extract the information for you using AI.
                   </p>
                 </div>
                 <button
                   onClick={() => setShowFileUpload(false)}
-                  className="p-1 sm:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors ml-2"
+                  className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>

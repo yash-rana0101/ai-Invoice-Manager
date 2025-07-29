@@ -1,141 +1,129 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Bot } from 'lucide-react';
-import axios from 'axios';
 
 export default function Login() {
-  const [email, setEmail] = useState('demo@example.com');
-  const [password, setPassword] = useState('demo123');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user, loading, isAuthenticated } = useAuth();
 
-  // Handle Xero OAuth redirect with token in URL
+  console.log('=== LOGIN COMPONENT ===');
+  console.log('Current path:', location.pathname);
+  console.log('Search params:', location.search);
+  console.log('Is loading:', loading);
+  console.log('Is authenticated:', isAuthenticated);
+  console.log('User:', !!user);
+
+  // Check for error parameters and handle them
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    // Accept both ?token=... and ?access_token=...
-    const token = params.get('token') || params.get('access_token');
+    const params = new URLSearchParams(location.search);
+    const error = params.get('error');
 
-    console.log('Xero OAuth param:', params.toString());
+    if (error) {
+      console.log('Login page error parameter:', error);
 
-    if (token) {
-      localStorage.setItem('token', token);
-      window.history.replaceState({}, document.title, window.location.pathname); // Clean URL
-      navigate('/');
+      // Handle specific errors
+      if (error === 'duplicate_callback') {
+        console.log('Duplicate callback detected, clearing URL params');
+        // Clear the error from URL without causing a re-render loop
+        window.history.replaceState({}, '', '/login');
+      }
+
+      // You can add more error handling here
+      if (error === 'oauth_error') {
+        console.log('OAuth error detected');
+      }
+    }
+  }, [location.search]);
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!loading && isAuthenticated && user) {
+      console.log('=== USER ALREADY AUTHENTICATED ===');
+      console.log('Redirecting authenticated user to home');
+
+      // Get the intended destination from location state, or default to home
+      const from = location.state?.from?.pathname || '/';
+      console.log('Redirecting to:', from);
+
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, loading, user, navigate, location.state]);
+
+  const handleXeroLogin = () => {
+    console.log('=== STARTING XERO OAUTH FLOW ===');
+
+    const clientId = import.meta.env.VITE_XERO_CLIENT_ID;
+    const redirectUri = import.meta.env.VITE_XERO_CALLBACK_URL;
+
+    console.log('Client ID:', clientId ? `${clientId.substring(0, 8)}...` : 'MISSING');
+    console.log('Redirect URI:', redirectUri);
+
+    if (!clientId || !redirectUri) {
+      console.error('Missing required environment variables');
+      alert('OAuth configuration error. Please check environment variables.');
+      return;
     }
 
-  }, [navigate]);
+    // Generate a random state for CSRF protection
+    const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    console.log('Generated state:', state);
 
-  const XERO_CLIENT_ID = `${import.meta.env.VITE_XERO_CLIENT_ID}`;
-  const XERO_CALLBACK_URL = `${import.meta.env.VITE_XERO_CALLBACK_URL}`; // This should be a frontend route you handle
-  const XERO_SCOPES = [
-    'offline_access',
-    'accounting.transactions',
-    'openid',
-    'profile',
-    'email',
-    'accounting.contacts',
-    'accounting.settings'
-  ].join(' ');
-  const STATE = '1234';
+    // Store state for validation (optional but recommended)
+    sessionStorage.setItem('xero_oauth_state', state);
 
-  function handleXeroLogin() {
-    const params = new URLSearchParams({
-      response_type: 'code',
-      client_id: XERO_CLIENT_ID,
-      redirect_uri: XERO_CALLBACK_URL,
-      scope: XERO_SCOPES,
-      state: STATE,
-    });
-    window.location.href = `https://login.xero.com/identity/connect/authorize?${params.toString()}`;
+    // Clear any existing processed URLs to prevent duplicate callback issues
+    sessionStorage.removeItem('xero_last_processed_url');
 
-  }
+    const authUrl = `https://login.xero.com/identity/connect/authorize?` +
+      `response_type=code&` +
+      `client_id=${clientId}&` +
+      `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+      `scope=openid profile email accounting.settings accounting.reports.read accounting.journals.read accounting.contacts accounting.attachments&` +
+      `state=${state}`;
 
+    console.log('OAuth URL created, redirecting...');
+    console.log('Auth URL:', authUrl.replace(clientId, `${clientId.substring(0, 8)}...`));
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError('');
-
-    try {
-      await login(email, password);
-      navigate('/');
-    } catch (err) {
-      setError('Invalid credentials. Please try again.');
-    } finally {
-      setLoading(false);
-    }
+    // Redirect to Xero OAuth
+    window.location.href = authUrl;
   };
 
+  // Show loading if auth is still being checked
+  if (loading) {
+    console.log('Auth still loading, showing spinner');
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="spinner"></div>
+          <div>Checking authentication status...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login form if not authenticated
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="mx-auto h-12 w-12 bg-primary-500 rounded-full flex items-center justify-center">
-            <Bot className="h-8 w-8 text-white" />
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+        <div className="text-center">
+          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
             Sign in to your account
           </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            AI-Powered Invoice & Balance Sheet Manager
+          <p className="mt-2 text-sm text-gray-600">
+            Connect with your Xero account to get started
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-              />
-            </div>
-            <div>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-primary-500 focus:border-primary-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-              />
-            </div>
-          </div>
 
-          {error && (
-            <div className="text-red-600 text-sm text-center">{error}</div>
-          )}
-
-          <div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
-            >
-              {loading ? (
-                <div className="spinner"></div>
-              ) : (
-                'Sign in'
-              )}
-            </button>
-          </div>
-
-          <div className="text-center text-sm text-gray-600">
-            Demo credentials are pre-filled for testing
-          </div>
-        </form>
-        <div className="mt-6 flex m-4 flex-col items-center">
+        <div className="mt-8 space-y-6">
           <button
-            type="button"
             onClick={handleXeroLogin}
-            className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+            className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition duration-150 ease-in-out"
           >
-            Sign in with Xero
+            <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
+            </svg>
+            Login with Xero
           </button>
         </div>
       </div>
